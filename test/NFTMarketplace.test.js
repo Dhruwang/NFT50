@@ -2,6 +2,7 @@
 const { expect } = require("chai");
 
 const toWei = (num) => ethers.utils.parseEther(num.toString())
+const fromWei = (num) => ethers.utils.formatEther(num.toString())
 
 describe("NFTMarketplace", async function () {
   let feePercent = 1;
@@ -76,5 +77,45 @@ describe("NFTMarketplace", async function () {
      
     })
 
+  })
+  describe("purchasing marketplace items",  function() {
+    let price = 2;
+    let fee = (feePercent/100)*price
+    beforeEach(async function(){
+      // minting nft with addr1 
+      await nft.connect(addr1).mint(URI)
+      // addr1 approves marketplace to spend nft 
+      await nft.connect(addr1).setApprovalForAll(marketplace.address, true)
+      // addr1 make their nft as marketplace item
+      await marketplace.connect(addr1).makeItem(nft.address,toWei(price),1)
+    })
+    it("should update item sold status, pay seller and feeAccount, transfer item to buyer and emit a bought event",async function(){
+      const sellerInitalEthBal = await addr1.getBalance()
+      const feeAccountInitialEthBal = await deployer.getBalance()
+      // addr2 purchasing nft 
+
+      const totalPriceInWei = await marketplace.getTotalPrice(1);
+      await expect(marketplace.connect(addr2).purchaseItem(1,{value:totalPriceInWei}))
+      .to.emit(marketplace,"Bought")
+      .withArgs(
+        1,
+        nft.address,
+        1,
+        toWei(price),
+        addr1.address,
+        addr2.address
+      )
+
+      const sellerFinalEthBal = await addr1.getBalance()
+      const feeAccountFinalEthBal = await deployer.getBalance()
+      // Item should be marked as sold
+      expect((await marketplace.items(1)).sold).to.equal(true)
+      // Seller should receive payment for the price of the NFT sold.
+      expect(+fromWei(sellerFinalEthBal)).to.equal(+price + +fromWei(sellerInitalEthBal))
+      // feeAccount should receive fee
+      // expect(+fromWei(feeAccountFinalEthBal)).to.equal(+fee + +fromWei(feeAccountInitialEthBal)) 
+      // The buyer should now own the nft
+      expect(await nft.ownerOf(1)).to.equal(addr2.address);
+    })
   })
 })

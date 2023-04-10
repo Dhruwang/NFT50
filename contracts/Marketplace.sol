@@ -35,7 +35,7 @@ contract Marketplace is ReentrancyGuard{
         address indexed buyer
     );
     // itemId->Item 
-    mapping (uint => Item) items;
+    mapping (uint => Item) public items;
 
     constructor(uint _feePercent){
         feeAccount = payable(msg.sender);
@@ -57,7 +57,7 @@ contract Marketplace is ReentrancyGuard{
         emit Offered(itemsCount,address( _nft), _tokenId, _price, msg.sender);
     }
     function purchaseItem(uint _itemId) external payable nonReentrant{
-        require(_itemId>0 && _itemId < itemsCount,"Invalid ItemId");
+        require(_itemId>0 && _itemId <= itemsCount,"Invalid ItemId");
 
         // fettching the item from struct Item using _itemId 
         Item storage item = items[_itemId];
@@ -66,7 +66,7 @@ contract Marketplace is ReentrancyGuard{
         require(msg.value >= _totalPrice,"Not enough ether to cover item price and marketfee");
 
         item.seller.transfer(item.price);
-        feeAccount.transfer(_totalPrice-item.price);
+        feeAccount.transfer( _totalPrice - item.price);
 
         // Updating sold status
         item.sold = true;
@@ -77,6 +77,6 @@ contract Marketplace is ReentrancyGuard{
         
     }
     function getTotalPrice(uint _itemId) view public returns(uint){
-        return( items[_itemId].price*(100+feePercent)/100);
+        return( (items[_itemId].price*(100+feePercent))/100);
     }
 }
